@@ -1,13 +1,21 @@
 require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
+const helmet = require('helmet')
+const cors = require('cors')
 const POKEDEX = require('./pokedex.json')
 
-console.log(process.env.API_TOKEN)
 
 const app = express();
 
-app.use(morgan('dev'))
+const morganSetting = process.env.NODE_ENV === 'production' ? 'tiny' : 'common';
+app.use(morgan(morganSetting))
+
+//helmet MUST be before use cors
+
+app.use(helmet())
+
+app.use(cors())
 
 const validTypes = [
   `Bug`, 
@@ -29,19 +37,38 @@ const validTypes = [
   `Steel`, 
   `Water`
 ]
+//This is the middleware that handles errors. It catches server errors withour exposing secure data (like tokens)
+//Express knows that when middleware has a list of 4 parameters that middleware will be assigned to error handling. 
+app.use((error, req, res, next)=>{
+  let response
+  if( process.env.NODE_ENV === 'production') {
+    response = {error: { message: 'server error'}}
+  }
+  else {
+    response = {error} 
+  }
+  res.statu(500).json(response)
+})
+
+const PORT = process.env.PORT || 8000
+
+app.listen(PORT, () => {
+  
+})
+
 
 app.use(function validateBearerToken(req, res, next){
   
   
   const apiToken = process.env.API_TOKEN
+  
   const authToken = req.get('Authorization')
   
-  console.log('validate bearer token middleware')
-    //tells express that to move to next middleware IF WE DID NOT INCLUDE next() the request would just hang here and eventually time out.
   if(!authToken || authToken.split(' ')[1] !== apiToken) {
     return res.status(401).json({ error: 'Unauthorized request'})
   }
-
+  
+  //tells express that to move to next middleware IF WE DID NOT INCLUDE next() the request would just hang here and eventually time out.
   next()
 
 })
@@ -57,7 +84,7 @@ app.get('/types', function handleGetTypes(req, res) {
 
 
 app.get('/pokemon', function handleGetPokemo(req, res){
-  
+  debugger
   let response = POKEDEX.pokemon
   //if a query was provided then filter out the results
   if (req.query.name){
@@ -75,11 +102,6 @@ app.get('/pokemon', function handleGetPokemo(req, res){
 
 
 
-const PORT = 8000
-
-app.listen(PORT, () => {
-  console.log(`Server listening at http://localhost:${PORT}`)
-})
 
 
 
